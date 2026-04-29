@@ -14,6 +14,7 @@ class Order(models.Model):
 
     customer_name = models.CharField(max_length=100)
     customer_phone = models.CharField(max_length=15)
+    customer_email = models.EmailField()
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
