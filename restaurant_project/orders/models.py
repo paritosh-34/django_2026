@@ -1,7 +1,9 @@
 from django.db import models
 
+from core.models import TimestampedModel
+
 # Create your models here.
-class Order(models.Model):
+class Order(TimestampedModel):
     """A customer's order"""
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -26,9 +28,6 @@ class Order(models.Model):
         default=0
     )
     notes = models.TextField(blank=True)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-created_at']
