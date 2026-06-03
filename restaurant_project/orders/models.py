@@ -34,3 +34,28 @@ class Order(TimestampedModel):
 
     def __str__(self):
         return f"Order #{self.id} - {self.customer_name} ({self.status})"
+
+class RecentOrder(Order):
+    """Orders from the last 7 days - for dashboard."""
+    class Meta:
+        proxy = True
+        ordering = ['-created_at']
+
+    @classmethod
+    def get_queryset(cls):
+        from datetime import timedelta
+        from django.utils import timezone
+        week_ago = timezone.now() - timedelta(days=7)
+        return cls.objects.filter(created_at__gte=week_ago)
+
+class ArchivedOrder(Order):
+    """Orders older than 30 days - for reports."""
+    class Meta:
+        proxy = True
+
+    @classmethod
+    def get_queryset(cls):
+        from datetime import timedelta
+        from django.utils import timezone
+        month_ago = timezone.now() - timedelta(days=30)
+        return cls.objects.filter(created_at__lt=month_ago)

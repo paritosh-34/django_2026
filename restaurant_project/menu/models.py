@@ -22,7 +22,17 @@ class MenuItem(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='items')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    spice_level = models.CharField(max_length=20, default='medium')
 
     def __str__(self):
         return f"{self.name} ({self.price})"
+
+
+class Food(MenuItem):
+    is_vegetarian = models.BooleanField(default=False)
+    spice_level = models.IntegerField(default=0)  # 0-5
+    # Automatically gets: name, price, is_available
+
+class Beverage(MenuItem):
+    size_ml = models.IntegerField()
+    is_carbonated = models.BooleanField(default=False)
+    # Automatically gets: name, price, is_available
