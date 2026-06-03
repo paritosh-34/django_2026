@@ -1,10 +1,31 @@
 from django.db import models
+import uuid
 
 from core.models import TimestampedModel
 
 # Create your models here.
 class Order(TimestampedModel):
     """A customer's order"""
+
+    # This is how uuid is used
+    # id = models.UUIDField(
+    #     primary_key=True,
+    #     default=uuid.uuid4,
+    #     editable=False
+    # )
+
+    # DUAL ID approach
+    # Internal integer ID (auto-generated, used for JOINs)
+    id = models.BigAutoField(primary_key=True)
+
+    # External UUID (exposed in API)
+    public_id = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        db_index=True  # Required for API lookups!
+    )
+
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('confirmed', 'Confirmed'),
