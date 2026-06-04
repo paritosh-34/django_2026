@@ -6,6 +6,9 @@ from core.models import TimestampedModel
 # orders/models.py
 class OrderQuerySet(models.QuerySet):
     """Custom QuerySet methods for Order."""
+    def with_items(self):
+        """Solve N+1 for items"""
+        return self.prefetch_related('items__menu_item')
 
     def pending(self):
         return self.filter(status='pending')
@@ -84,6 +87,13 @@ class Order(TimestampedModel):
     notes = models.TextField(blank=True)
     objects = OrderQuerySet.as_manager()
 
+    # Many-to-Many with Through Model
+    menu_items = models.ManyToManyField(
+        'menu.MenuItem',
+        through='OrderItem',
+        related_name='orders'
+    )
+
     class Meta:
         ordering = ['-created_at']
 
@@ -114,3 +124,25 @@ class ArchivedOrder(Order):
         from django.utils import timezone
         month_ago = timezone.now() - timedelta(days=30)
         return cls.objects.filter(created_at__lt=month_ago)
+
+class OrderInvoice(models.Model):
+    order = models.OneToOneField(
+        Order,
+        on_delete=models.CASCADE,
+        related_name='invoice'  # order.invoice
+    )
+
+# Many-to-Many with Through Model
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE)
+    menu_item = models.ForeignKey('menu.MenuItem', on_delete=models.PROTECT)
+    quantity = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=6, decimal_places=2)
+
+# on_delete     Options
+#
+# Option	    Behavior
+# CASCADE	    Delete children when parent deleted
+# PROTECT	    Prevent deletion if children exist
+# SET_NULL	    Set FK to NULL (requires null=True)
+# SET_DEFAULT	Set FK to default value
