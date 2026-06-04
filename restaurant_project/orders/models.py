@@ -3,7 +3,40 @@ import uuid
 
 from core.models import TimestampedModel
 
-# Create your models here.
+# orders/models.py
+class OrderQuerySet(models.QuerySet):
+    """Custom QuerySet methods for Order."""
+
+    def pending(self):
+        return self.filter(status='pending')
+
+    def active(self):
+        """Orders that aren't cancelled or delivered."""
+        return self.exclude(status__in=['cancelled', 'delivered'])
+
+    def today(self):
+        from django.utils import timezone
+        return self.filter(created_at__date=timezone.now().date())
+
+    def high_value(self, min_amount=100):
+        return self.filter(total_amount__gte=min_amount)
+
+    def needs_attention(self):
+        """Pending orders older than 30 minutes."""
+        from datetime import timedelta
+        from django.utils import timezone
+        threshold = timezone.now() - timedelta(minutes=30)
+        return self.filter(status='pending', created_at__lte=threshold)
+
+    # --- USAGE ---
+    # # Clean, readable, DRY code!
+    # Order.objects.pending()
+    # Order.objects.active().today()
+    # Order.objects.pending().high_value(min_amount=500)
+    #
+    # # Chain with regular filters
+    # Order.objects.pending().filter(customer_name__icontains='john')
+
 class Order(TimestampedModel):
     """A customer's order"""
 
@@ -49,6 +82,7 @@ class Order(TimestampedModel):
         default=0
     )
     notes = models.TextField(blank=True)
+    objects = OrderQuerySet.as_manager()
 
     class Meta:
         ordering = ['-created_at']
@@ -80,44 +114,3 @@ class ArchivedOrder(Order):
         from django.utils import timezone
         month_ago = timezone.now() - timedelta(days=30)
         return cls.objects.filter(created_at__lt=month_ago)
-
-# orders/models.py
-class OrderQuerySet(models.QuerySet):
-    """Custom QuerySet methods for Order."""
-
-    def pending(self):
-        return self.filter(status='pending')
-
-    def active(self):
-        """Orders that aren't cancelled or delivered."""
-        return self.exclude(status__in=['cancelled', 'delivered'])
-
-    def today(self):
-        from django.utils import timezone
-        return self.filter(created_at__date=timezone.now().date())
-
-    def high_value(self, min_amount=100):
-        return self.filter(total_amount__gte=min_amount)
-
-    def needs_attention(self):
-        """Pending orders older than 30 minutes."""
-        from datetime import timedelta
-        from django.utils import timezone
-        threshold = timezone.now() - timedelta(minutes=30)
-        return self.filter(status='pending', created_at__lte=threshold)
-
-    # --- USAGE ---
-    # # Clean, readable, DRY code!
-    # Order.objects.pending()
-    # Order.objects.active().today()
-    # Order.objects.pending().high_value(min_amount=500)
-    #
-    # # Chain with regular filters
-    # Order.objects.pending().filter(customer_name__icontains='john')
-
-
-class Order(models.Model):
-    # ... fields ...
-
-    # Use custom QuerySet as manager
-    objects = OrderQuerySet.as_manager()
