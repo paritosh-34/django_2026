@@ -1,5 +1,6 @@
+from django.db.models import Q
 from django.shortcuts import render
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 
 from .models import MenuItem
 
@@ -33,7 +34,7 @@ def menu_list(request):
     response = "<h3>My menu items are:</h3>"
     response += "\n<ul>"
     for item in items:
-        response += f"\n<li>{item.name}</li>"
+        response += f"\n<li>{item.id} - {item.name}</li>"
 
     response += "\n</ul>"
 
@@ -44,4 +45,14 @@ def menu_list(request):
 # URL: /menu/item/42/
 def item_detail(request, item_id):  # item_id is passed automatically!
     # item_id = 42 (as an integer, not string)
-    return HttpResponse(f"Showing item #{item_id}")
+    # item = MenuItem.objects.filter(Q(name=item_id) | Q(id=item_id))
+    try:
+        item = MenuItem.objects.get(id=item_id)
+    except MenuItem.DoesNotExist:
+        return HttpResponse("ITEM NOT FOUND", status=404)
+    except Exception as e:
+        return HttpResponse(f"Error: {str(e)}", status=500)
+    else:
+        return HttpResponse(f"Item {item_id} found!", status=200)
+    # finally:
+        # Do something after all of the above
