@@ -86,9 +86,25 @@ class MenuItemListView(APIView):
             serializer_class = MenuItemSerializer
             pagination_class = MenuPagination
             filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-            search_fields = ['name', 'description', 'category__name']
+            search_fields = ['^name', '=category__name', 'description']
             ordering_fields = ['name', 'price', 'created_at']   # whitelist
             ordering = ['name']
+
+    SearchFilter prefixes (a char in front of the field changes the match):
+        'name'    (none)  ->  icontains   LIKE '%foo%'   substring, anywhere
+        '^name'   starts  ->  istartswith LIKE 'foo%'    prefix match
+        '=name'   exact   ->  iexact      = 'foo'         whole-value match
+        '@name'   full-text search (Postgres only)
+        '$name'   regex
+
+    Why the prefix matters — INDEXES:
+        '%foo%' (default contains) has a leading wildcard, so the DB can't use a
+        B-tree index — it scans every row. '^name' -> 'foo%' is anchored at the
+        start, so an index on name CAN be used (huge win on big tables). '=' is
+        an equality match, the most index-friendly of all. Rule of thumb: anchor
+        the search (^ or =) when the column is indexed and the table is large;
+        plain contains is fine for small tables. (Caveat: case-insensitive
+        matching can still defeat the index unless you index lower(name) too.)
 
     ~7 lines instead of ~30. We DIDN'T use it here on purpose, for two reasons:
       1. `menu` is our "APIView, full manual control" app — kept side by side
@@ -119,6 +135,10 @@ class MenuItemListView(APIView):
 
         search = request.query_params.get('search')
         if search:
+            # By hand, the SearchFilter prefixes map to ORM lookups:
+            #   default '%foo%'  -> __icontains   (used here; not indexable)
+            #   '^' prefix match -> __istartswith 'foo%'  (can use an index)
+            #   '=' exact match  -> __iexact
             items = items.filter(
                 Q(name__icontains=search) | Q(description__icontains=search)
             )
