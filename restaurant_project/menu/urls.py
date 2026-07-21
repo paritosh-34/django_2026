@@ -8,8 +8,8 @@ urlpatterns = [
     path('item/<str:item_id>/', views.item_detail, name='item_detail'),
 
     # DRF API — class-based views need .as_view()
-    path('api/items/', views.MenuItemListView.as_view(), name='api_menu_items'),
-    path('api/items/<uuid:item_id>/', views.MenuItemDetailView.as_view(), name='api_menu_item_detail'),
+    path('items/', views.MenuItemListView.as_view(), name='api_menu_items'),
+    path('items/<uuid:item_id>/', views.MenuItemDetailView.as_view(), name='api_menu_item_detail'),
 ]
 
 

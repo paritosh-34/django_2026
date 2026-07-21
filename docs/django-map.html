@@ -490,6 +490,59 @@ REST_FRAMEWORK = {
     </details>
   </section>
 
+  <!-- ============ FILTERING ============ -->
+  <section class="card" id="filtering" data-t="Filtering &amp; ordering" data-k="filter search ordering order_by query params searchfilter orderingfilter filter_backends whitelist search_fields ordering_fields">
+    <h2>Filtering &amp; ordering</h2>
+    <p class="sub">Not a feature — just more <code>.filter()</code> / <code>.order_by()</code> on the
+       same lazy queryset. DRF only offers a shortcut for declaring them.</p>
+
+    <div class="flow">
+      <div class="step"><b>?category=</b><em>.filter()</em><span>exact match</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>?search=</b><em>.filter(Q|Q)</em><span>icontains OR</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>?ordering=</b><em>.order_by()</em><span>whitelist first</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>paginate</b><em>slice</em><span>LIMIT/OFFSET</span></div>
+    </div>
+
+    <h3>Two styles — same trade as the view ladder</h3>
+    <div class="tw"><table>
+      <tr><th></th><th>By hand (<code>APIView</code>, this repo)</th><th>Declarative (<code>generics</code>)</th></tr>
+      <tr><td>Search</td><td><code>Q(name__icontains=…)</code> in <code>get()</code></td><td><code>search_fields = […]</code></td></tr>
+      <tr><td>Ordering</td><td><code>.order_by()</code> + whitelist</td><td><code>ordering_fields = […]</code></td></tr>
+      <tr><td>Custom (<code>?category</code>, <code>?available</code>)</td><td>✅ you write them</td><td>❌ needs <code>django-filter</code></td></tr>
+      <tr><td>Lines</td><td>~25</td><td>~7</td></tr>
+    </table></div>
+
+    <p>The declarative version the lecturer showed:</p>
+<pre><code><span class="k">class</span> MenuItemListView(generics.ListAPIView):
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields   = [<span class="k">'name'</span>, <span class="k">'description'</span>, <span class="k">'category__name'</span>]
+    ordering_fields = [<span class="k">'name'</span>, <span class="k">'price'</span>, <span class="k">'created_at'</span>]  <span class="c"># whitelist!</span>
+    ordering        = [<span class="k">'name'</span>]                       <span class="c"># default sort</span></code></pre>
+
+    <p>The by-hand version — the whitelist gate is the whole lesson:</p>
+<pre><code>ordering = request.query_params.get(<span class="k">'ordering'</span>, <span class="k">'name'</span>)
+<span class="k">if</span> ordering.lstrip(<span class="k">'-'</span>) <span class="k">in</span> {<span class="k">'name'</span>, <span class="k">'price'</span>, <span class="k">'created_at'</span>}:  <span class="c"># -price → 'price'</span>
+    items = items.order_by(ordering)                       <span class="c"># leading - = DESC</span>
+<span class="k">else</span>:
+    items = items.order_by(<span class="k">'name'</span>)                        <span class="c"># ignore junk input</span></code></pre>
+
+    <div class="note"><b>Never pass <code>?ordering=</code> straight into <code>order_by()</code></b>
+      Raw user input lets a client sort by any field or FK traversal
+      (<code>?ordering=category__id</code>), or crash the query on a typo. Whitelist it — that's
+      exactly what the lecturer's <code># whitelist!</code> comment guards. The declarative
+      backend does the same check internally; by hand you spell it out.</div>
+
+    <div class="ex"><b>Why this repo stayed by-hand</b>
+      <code>SearchFilter</code> / <code>OrderingFilter</code> give <code>?search=</code> and
+      <code>?ordering=</code> free, but <em>not</em> the custom <code>?category=</code> /
+      <code>?available=</code> exact filters — those need a third backend
+      (<code>DjangoFilterBackend</code>, <code>pip install django-filter</code>). Writing
+      <code>get()</code> keeps all four filters in one place, no extra dependency.</div>
+  </section>
+
   <!-- ============ URLS ============ -->
   <section class="card" id="urls" data-t="URLs &amp; routing" data-k="urls routing path as_view router converter include reverse">
     <h2>URLs &amp; routing</h2>
@@ -794,6 +847,8 @@ python manage.py graph_models -a -o er.png</code></pre>
       <tr><td><code>no such table: payments_payment</code></td><td>Migration <em>written</em> but not applied. <code>showmigrations</code> shows <code>[ ]</code> vs <code>[X]</code></td></tr>
       <tr><td><code>AttributeError</code> on a model field</td><td>Field renamed in models but the old name still used in a view</td></tr>
       <tr><td><code>UNIQUE constraint failed</code> on migrate</td><td>Added a unique field to populated rows — split into add → backfill → constrain</td></tr>
+      <tr><td><code>search_fields</code> / <code>filter_backends</code> do nothing</td><td>Only <code>GenericAPIView</code> reads them — on plain <code>APIView</code> they're silently ignored</td></tr>
+      <tr><td>Client sorts by a field you never exposed</td><td>Raw <code>?ordering=</code> passed to <code>order_by()</code>. Whitelist the allowed fields</td></tr>
     </table></div>
 
     <div class="note"><b>Check this first when something is "impossible"</b>
@@ -809,7 +864,7 @@ python manage.py graph_models -a -o er.png</code></pre>
 
     <div class="files">
       <div class="file"><b>permissions</b><span>Auth on endpoints. The menu API is fully open right now.</span><i>permission_classes</i></div>
-      <div class="file"><b>django-filter</b><span>Query-param filtering without hand-writing it in get().</span><i>filterset_fields</i></div>
+      <div class="file"><b>django-filter</b><span>The declarative <code>?category=</code>/<code>?available=</code> — the custom filters we still write by hand in get().</span><i>DjangoFilterBackend</i></div>
       <div class="file"><b>tests</b><span>Every app has an empty tests.py. APITestCase is the DRF one.</span><i>manage.py test</i></div>
       <div class="file"><b>signals</b><span>Run code on save/delete. Powerful, easy to overuse.</span><i>post_save</i></div>
       <div class="file"><b>transactions</b><span>Used in the webhook already — worth learning properly.</span><i>transaction.atomic</i></div>
