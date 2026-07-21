@@ -2,7 +2,13 @@ from django.db.models import Q
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
 
+from rest_framework import status
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from .models import MenuItem
+from .serializers import MenuItemSerializer
 
 
 # Create your views here.
@@ -56,3 +62,88 @@ def item_detail(request, item_id):  # item_id is passed automatically!
         return HttpResponse(f"Item {item_id} found!", status=200)
     # finally:
         # Do something after all of the above
+
+
+# ---------------------------------------------------------------------------
+# DRF API views
+# ---------------------------------------------------------------------------
+
+class MenuPagination(PageNumberPagination):
+    page_size = 10                   # Default items per page
+    page_size_query_param = 'size'   # Client can override: ?size=50
+    max_page_size = 100              # Cap it — don't let client request 10,000
+
+
+class MenuItemListView(APIView):
+    """
+    GET  /menu/api/items/  — paginated, filterable list
+    POST /menu/api/items/  — create an item
+    """
+
+    def get(self, request):
+        # order_by is required: LIMIT/OFFSET without ORDER BY lets the DB
+        # return rows in any order, so items can repeat across pages.
+        items = MenuItem.objects.select_related('category').order_by('name')
+
+        category = request.query_params.get('category')
+        if category:
+            items = items.filter(category__name__iexact=category)
+
+        search = request.query_params.get('search')
+        if search:
+            items = items.filter(
+                Q(name__icontains=search) | Q(description__icontains=search)
+            )
+
+        available = request.query_params.get('available')
+        if available is not None:
+            items = items.filter(is_available=available.lower() == 'true')
+
+        # With APIView we drive the paginator ourselves. A generic view would
+        # do these three lines for us.
+        paginator = MenuPagination()
+        page = paginator.paginate_queryset(items, request, view=self)
+        serializer = MenuItemSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+    def post(self, request):
+        serializer = MenuItemSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)  # 400 with field errors
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class MenuItemDetailView(APIView):
+    """GET / PUT / PATCH / DELETE a single item."""
+
+    def get_object(self, item_id):
+        return MenuItem.objects.select_related('category').filter(id=item_id).first()
+
+    def get(self, request, item_id):
+        item = self.get_object(item_id)
+        if item is None:
+            return Response({'detail': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(MenuItemSerializer(item).data)
+
+    def put(self, request, item_id):
+        return self._update(request, item_id, partial=False)
+
+    def patch(self, request, item_id):
+        return self._update(request, item_id, partial=True)
+
+    def _update(self, request, item_id, partial):
+        item = self.get_object(item_id)
+        if item is None:
+            return Response({'detail': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = MenuItemSerializer(item, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    def delete(self, request, item_id):
+        item = self.get_object(item_id)
+        if item is None:
+            return Response({'detail': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+        item.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

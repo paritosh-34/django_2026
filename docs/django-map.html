@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Django Field Guide — restaurant_project</title>
+<style>
+/* ---------- tokens ---------- */
+:root{
+  --paper:#eef1ec;
+  --card:#f7f9f6;
+  --ink:#131a17;
+  --ink-2:#3d4a44;
+  --ink-3:#6b7873;
+  --rule:#d3dbd5;
+  --accent:#1c5c42;
+  --accent-soft:#dceae3;
+  --node:#8a5a1e;
+  --node-soft:#f2e7d5;
+  --warn:#a33b2a;
+  --warn-soft:#f6e0db;
+  --shadow:0 1px 2px rgba(19,26,23,.06),0 4px 14px rgba(19,26,23,.05);
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --serif:Charter,"Bitstream Charter","Iowan Old Style",Georgia,serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --paper:#101512;--card:#171e1a;--ink:#e4ebe6;--ink-2:#aab8b1;--ink-3:#7d8b84;
+    --rule:#2a3630;--accent:#5fbf95;--accent-soft:#17362a;
+    --node:#d9a34a;--node-soft:#33270f;--warn:#e08e7c;--warn-soft:#3a201a;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 14px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#101512;--card:#171e1a;--ink:#e4ebe6;--ink-2:#aab8b1;--ink-3:#7d8b84;
+  --rule:#2a3630;--accent:#5fbf95;--accent-soft:#17362a;
+  --node:#d9a34a;--node-soft:#33270f;--warn:#e08e7c;--warn-soft:#3a201a;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 4px 14px rgba(0,0,0,.3);
+}
+:root[data-theme="light"]{
+  --paper:#eef1ec;--card:#f7f9f6;--ink:#131a17;--ink-2:#3d4a44;--ink-3:#6b7873;
+  --rule:#d3dbd5;--accent:#1c5c42;--accent-soft:#dceae3;
+  --node:#8a5a1e;--node-soft:#f2e7d5;--warn:#a33b2a;--warn-soft:#f6e0db;
+  --shadow:0 1px 2px rgba(19,26,23,.06),0 4px 14px rgba(19,26,23,.05);
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);line-height:1.6;
+  -webkit-font-smoothing:antialiased}
+code,kbd{font-family:var(--mono)}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:230px minmax(0,1fr);gap:36px;
+  max-width:1180px;margin:0 auto;padding:0 24px}
+
+/* ---------- rail ---------- */
+.rail{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;
+  padding:28px 0 40px;display:flex;flex-direction:column;gap:18px}
+.brand{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent);font-weight:600;line-height:1.5}
+.brand span{display:block;color:var(--ink-3);font-weight:400;letter-spacing:.08em}
+.search{width:100%;padding:8px 10px;font-family:var(--mono);font-size:12px;
+  background:var(--card);color:var(--ink);border:1px solid var(--rule);border-radius:6px}
+.search:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+.nav{display:flex;flex-direction:column;gap:1px}
+.nav a{font-family:var(--mono);font-size:12.5px;color:var(--ink-2);text-decoration:none;
+  padding:5px 9px;border-radius:5px;border-left:2px solid transparent;transition:.15s}
+.nav a:hover{background:var(--card);color:var(--ink)}
+.nav a.on{color:var(--accent);border-left-color:var(--accent);background:var(--accent-soft)}
+.nav a:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.toggles{display:flex;flex-direction:column;gap:9px;padding-top:14px;border-top:1px solid var(--rule)}
+.tg{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11.5px;
+  color:var(--ink-2);cursor:pointer}
+.tg input{accent-color:var(--accent);margin:0;cursor:pointer}
+
+/* ---------- main ---------- */
+main{padding:52px 0 120px;min-width:0}
+.lede{max-width:64ch;margin-bottom:14px}
+h1{font-family:var(--mono);font-size:clamp(24px,3.4vw,34px);font-weight:600;letter-spacing:-.02em;
+  margin:0 0 10px;text-wrap:balance}
+.lede p{color:var(--ink-2);font-size:17px;margin:0}
+
+.card{background:var(--card);border:1px solid var(--rule);border-radius:10px;
+  padding:24px 26px;margin-top:26px;box-shadow:var(--shadow);scroll-margin-top:20px}
+.card.hide{display:none}
+h2{font-family:var(--mono);font-size:15px;font-weight:600;letter-spacing:.04em;margin:0 0 4px;
+  text-transform:uppercase;color:var(--accent)}
+.sub{color:var(--ink-3);font-size:15px;margin:0 0 20px;max-width:64ch}
+h3{font-family:var(--mono);font-size:12.5px;font-weight:600;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink-3);margin:26px 0 10px}
+p{max-width:64ch}
+main p{color:var(--ink-2)}
+strong{color:var(--ink);font-weight:600}
+
+/* ---------- flow diagram ---------- */
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:0;margin:6px 0 4px}
+.step{flex:1 1 128px;min-width:128px;background:var(--paper);border:1px solid var(--rule);
+  border-radius:8px;padding:11px 13px;position:relative}
+.step b{display:block;font-family:var(--mono);font-size:12px;color:var(--accent);margin-bottom:3px}
+.step em{font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--ink-3);
+  display:block;margin-bottom:5px;word-break:break-all}
+.step span{font-size:13px;color:var(--ink-2);display:block;line-height:1.45}
+.arrow{display:flex;align-items:center;justify-content:center;flex:0 0 26px;
+  color:var(--accent);font-family:var(--mono);font-size:15px}
+@media(max-width:760px){.arrow{flex-basis:100%;height:20px;transform:rotate(90deg)}}
+
+/* ---------- ladder ---------- */
+.ladder{display:flex;flex-direction:column;gap:7px;margin:10px 0}
+.rung{display:grid;grid-template-columns:150px minmax(0,1fr) auto;gap:14px;align-items:center;
+  background:var(--paper);border:1px solid var(--rule);border-left:3px solid var(--accent);
+  border-radius:7px;padding:10px 14px}
+.rung code{font-size:12.5px;color:var(--accent);font-weight:600}
+.rung .d{font-size:13.5px;color:var(--ink-2)}
+.rung .m{font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--ink-3);
+  text-align:right;white-space:nowrap;text-transform:uppercase}
+.axis{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);padding:0 14px;margin-top:8px}
+
+/* ---------- file map ---------- */
+.files{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:9px}
+.file{background:var(--paper);border:1px solid var(--rule);border-radius:7px;padding:11px 13px}
+.file b{font-family:var(--mono);font-size:12px;color:var(--accent);display:block;margin-bottom:4px}
+.file span{font-size:13px;color:var(--ink-2);line-height:1.45}
+.file i{display:block;font-style:normal;font-family:var(--mono);font-size:10.5px;
+  color:var(--ink-3);margin-top:6px}
+
+/* ---------- code ---------- */
+pre{background:var(--paper);border:1px solid var(--rule);border-radius:7px;
+  padding:13px 15px;overflow-x:auto;margin:10px 0;font-size:12.5px;line-height:1.65}
+pre code{color:var(--ink-2)}
+.c{color:var(--ink-3);font-style:italic}
+.k{color:var(--accent);font-weight:600}
+
+/* ---------- tables ---------- */
+.tw{overflow-x:auto;margin:10px 0}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:440px}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--ink-3);text-align:left;padding:0 12px 7px;border-bottom:1px solid var(--rule);font-weight:600}
+td{padding:8px 12px;border-bottom:1px solid var(--rule);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td code,td:first-child code{font-size:12px;color:var(--accent)}
+
+/* ---------- callouts ---------- */
+.note{border-left:3px solid var(--warn);background:var(--warn-soft);border-radius:0 7px 7px 0;
+  padding:11px 15px;margin:14px 0;font-size:14px;color:var(--ink-2)}
+.note b{font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--warn);display:block;margin-bottom:3px}
+.note code{color:var(--warn)}
+
+/* ---------- express comparison (toggleable) ---------- */
+.ex{border-left:3px solid var(--node);background:var(--node-soft);border-radius:0 7px 7px 0;
+  padding:11px 15px;margin:12px 0;font-size:13.5px;color:var(--ink-2)}
+.ex b{font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--node);display:block;margin-bottom:5px}
+.ex pre{background:transparent;border:none;padding:0;margin:5px 0 0}
+.ex code{color:var(--ink-2)}
+body:not(.show-ex) .ex{display:none}
+
+/* ---------- ER diagram ---------- */
+.er{display:grid;grid-template-columns:repeat(auto-fill,minmax(238px,1fr));gap:11px;margin:10px 0}
+.ent{background:var(--paper);border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+.ent.ghost{border-style:dashed;opacity:.8}
+.ent h4{margin:0;padding:8px 12px;font-family:var(--mono);font-size:12.5px;font-weight:600;
+  color:var(--ink);background:var(--card);border-bottom:1px solid var(--rule);
+  display:flex;justify-content:space-between;align-items:center;gap:8px}
+.app{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;
+  border-radius:3px;font-weight:600;flex:0 0 auto}
+.app.menu{color:var(--accent);background:var(--accent-soft)}
+.app.ord{color:var(--node);background:var(--node-soft)}
+.app.pay{color:var(--warn);background:var(--warn-soft)}
+.app.core{color:var(--ink-3);background:var(--rule)}
+.fld{display:flex;justify-content:space-between;gap:10px;padding:4px 12px;font-family:var(--mono);
+  font-size:11px;color:var(--ink-2);border-bottom:1px solid var(--rule)}
+.fld:last-child{border-bottom:none}
+.fld i{font-style:normal;color:var(--ink-3);font-size:10px;white-space:nowrap}
+.fld b{font-weight:600;color:var(--accent);font-size:9.5px;letter-spacing:.05em}
+.ent > p{margin:0;padding:7px 12px;font-size:12px;color:var(--ink-3);
+  border-top:1px solid var(--rule);max-width:none}
+.rel{display:grid;grid-template-columns:auto auto auto 1fr;gap:12px;align-items:center;
+  padding:8px 13px;background:var(--paper);border:1px solid var(--rule);border-radius:7px;margin-bottom:6px}
+.rel .e{font-family:var(--mono);font-size:12px;color:var(--ink);font-weight:600}
+.rel .cd{font-family:var(--mono);font-size:12px;color:var(--accent);white-space:nowrap}
+.rel .via{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);text-align:right}
+@media(max-width:620px){.rel{grid-template-columns:1fr;gap:4px}.rel .via{text-align:left}}
+
+/* ---------- misc ---------- */
+details{border-top:1px solid var(--rule);padding-top:12px;margin-top:16px}
+summary{font-family:var(--mono);font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--accent);cursor:pointer;list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"+ ";font-weight:700}
+details[open] summary::before{content:"− "}
+summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+.empty{color:var(--ink-3);font-family:var(--mono);font-size:13px;padding:36px 0;display:none}
+.empty.on{display:block}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media(max-width:860px){
+  .shell{grid-template-columns:1fr;gap:0}
+  .rail{position:static;height:auto;padding:22px 0 0}
+  .nav{flex-direction:row;flex-wrap:wrap}
+  .rung{grid-template-columns:1fr}.rung .m{text-align:left}
+  main{padding-top:26px}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<aside class="rail">
+  <div class="brand">Django Field Guide<span>restaurant_project</span></div>
+  <input class="search" id="q" type="search" placeholder="filter… (orm, paginate)" aria-label="Filter sections">
+  <nav class="nav" id="nav"></nav>
+  <div class="toggles">
+    <label class="tg"><input type="checkbox" id="ex"> Express equivalents</label>
+    <label class="tg"><input type="checkbox" id="dk"> Dark theme</label>
+  </div>
+</aside>
+
+<main>
+  <div class="lede">
+    <h1>Django, mapped</h1>
+    <p>A recall sheet for the parts that don't fit in your head yet — built around the code
+       actually in this repo, so every example points at a real file.</p>
+  </div>
+
+  <!-- ============ REQUEST LIFECYCLE ============ -->
+  <section class="card" id="lifecycle" data-t="Request flow" data-k="request lifecycle url routing middleware wsgi flow">
+    <h2>Request lifecycle</h2>
+    <p class="sub">The spine everything else hangs off. When you're lost, ask: which box am I in?</p>
+
+    <div class="flow">
+      <div class="step"><b>URL</b><em>GET /menu/api/items/</em><span>Browser or curl</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>ROOT urls</b><em>restaurant_project/urls.py</em><span>Matches prefix, hands off</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>APP urls</b><em>menu/urls.py</em><span>Matches rest, picks view</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>VIEW</b><em>menu/views.py</em><span>Your logic runs here</span></div>
+    </div>
+    <div class="flow" style="margin-top:9px">
+      <div class="step"><b>MODEL</b><em>menu/models.py</em><span>ORM builds + runs SQL</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>SERIALIZER</b><em>menu/serializers.py</em><span>Model objects → dicts</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>RESPONSE</b><em>Response(data)</em><span>Rendered to JSON</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>CLIENT</b><em>200 OK</em><span>JSON on the wire</span></div>
+    </div>
+
+    <div class="ex"><b>vs Express</b>
+      Same shape, different assembly. <code>app.use('/menu', menuRouter)</code> is the root urls.py;
+      the router is the app urls.py; the handler is the view. Django's difference is that
+      <strong>routing lives in its own file</strong>, never next to the handler.</div>
+
+    <div class="note"><b>The rule that unlocks it</b>
+      A view takes a <code>request</code> and returns a <code>response</code>. Always. Every view type
+      below is just a different amount of that work pre-written for you.</div>
+  </section>
+
+  <!-- ============ VIEW LADDER ============ -->
+  <section class="card" id="views" data-t="View ladder" data-k="views apiview generics viewset function ladder abstraction">
+    <h2>The view ladder</h2>
+    <p class="sub">One axis: how much you write vs. how much you control. Pick a rung, don't memorize all of them.</p>
+
+    <div class="ladder">
+      <div class="rung"><code>def view(request)</code><span class="d">Plain function. Returns HttpResponse. No DRF features at all.</span><span class="m">all control</span></div>
+      <div class="rung"><code>@api_view()</code><span class="d">Function, upgraded — gets DRF request/response objects.</span><span class="m">↓</span></div>
+      <div class="rung"><code>APIView</code><span class="d">Class. You write get() / post(). Full DRF machinery available.</span><span class="m">↓</span></div>
+      <div class="rung"><code>generics.*APIView</code><span class="d">Set queryset + serializer_class. CRUD logic inherited.</span><span class="m">↓</span></div>
+      <div class="rung"><code>ModelViewSet</code><span class="d">All six CRUD actions in one class. A router builds the URLs.</span><span class="m">least code</span></div>
+    </div>
+    <div class="axis"><span>you write everything</span><span>framework writes everything</span></div>
+
+    <h3>In this repo</h3>
+    <div class="tw"><table>
+      <tr><th>App</th><th>Rung</th><th>Why</th></tr>
+      <tr><td><code>payments</code></td><td>plain functions</td><td>Webhooks need exact control over signatures and status codes</td></tr>
+      <tr><td><code>menu</code></td><td><code>APIView</code></td><td>Custom filtering sits right above the pagination call</td></tr>
+      <tr><td><code>orders</code></td><td><code>ModelViewSet</code></td><td>Straight CRUD, no special cases — 3 lines gets 6 endpoints</td></tr>
+    </table></div>
+
+    <h3>Which generic for which verbs</h3>
+    <div class="tw"><table>
+      <tr><th>Class</th><th>Handles</th></tr>
+      <tr><td><code>ListAPIView</code></td><td>GET (many)</td></tr>
+      <tr><td><code>CreateAPIView</code></td><td>POST</td></tr>
+      <tr><td><code>RetrieveAPIView</code></td><td>GET (one)</td></tr>
+      <tr><td><code>ListCreateAPIView</code></td><td>GET (many) + POST</td></tr>
+      <tr><td><code>RetrieveUpdateDestroyAPIView</code></td><td>GET / PUT / PATCH / DELETE (one)</td></tr>
+    </table></div>
+
+    <div class="note"><b>Naming trap</b>
+      <code>django.views.generic.ListView</code> renders HTML templates.
+      <code>rest_framework.generics.ListAPIView</code> returns JSON. Different libraries, near-identical names.</div>
+
+    <details><summary>The mental model that makes CBVs click</summary>
+      <p>You never call these classes. You set <strong>attributes</strong>, and inherited code you
+      never see reads them by name. That's why <code>page_size</code> can't be renamed to
+      <code>pageSize</code> — the parent class goes looking for that exact string.</p>
+      <p>Express is "write the function, it runs." Django CBVs are "fill in the config, the
+      framework runs <em>its</em> function." Inversion of control is the whole adjustment.</p>
+    </details>
+  </section>
+
+  <!-- ============ APP ANATOMY ============ -->
+  <section class="card" id="anatomy" data-t="App anatomy" data-k="files structure app models admin apps migrations settings">
+    <h2>App anatomy</h2>
+    <p class="sub">Every Django app has the same files. Learn the six that matter.</p>
+
+    <div class="files">
+      <div class="file"><b>models.py</b><span>Table definitions. One class = one table.</span><i>Category, MenuItem</i></div>
+      <div class="file"><b>views.py</b><span>Request → response logic.</span><i>MenuItemListView</i></div>
+      <div class="file"><b>urls.py</b><span>Path → view wiring.</span><i>api/items/</i></div>
+      <div class="file"><b>serializers.py</b><span>Model ↔ JSON, plus validation. DRF only — you create it.</span><i>MenuItemSerializer</i></div>
+      <div class="file"><b>admin.py</b><span>Register models to get a free CRUD UI at /admin.</span><i>free data browser</i></div>
+      <div class="file"><b>migrations/</b><span>Versioned schema changes. Generated, then committed.</span><i>0005_alter_category_id</i></div>
+    </div>
+
+    <h3>The two commands you'll run forever</h3>
+<pre><code><span class="c"># 1. you changed models.py → write a migration file</span>
+python manage.py makemigrations
+
+<span class="c"># 2. apply pending migrations to the database</span>
+python manage.py migrate</code></pre>
+
+    <div class="ex"><b>vs Express</b>
+      There's no Django equivalent of scattering routes and schema wherever you like. The tradeoff:
+      you lose layout freedom, you gain the fact that every Django project on earth looks like this one.
+      Migrations are auto-generated from models — closer to Prisma than to hand-written Knex.</div>
+
+    <div class="note"><b>New app checklist</b>
+      <code>startapp</code> → add to <code>INSTALLED_APPS</code> in settings.py → write models →
+      <code>makemigrations</code> → <code>migrate</code> → include its urls in the root urls.py.
+      Forgetting INSTALLED_APPS is the classic silent failure.</div>
+  </section>
+
+  <!-- ============ ORM ============ -->
+  <section class="card" id="orm" data-t="ORM &amp; querysets" data-k="orm queryset filter lazy sql select_related n+1 database query">
+    <h2>ORM &amp; querysets</h2>
+    <p class="sub">The single most important idea: a queryset is a <em>recipe</em>, not a result.</p>
+
+    <div class="flow">
+      <div class="step"><b>BUILD</b><em>.filter().order_by()</em><span>Nothing runs. Chainable.</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>SLICE</b><em>qs[0:10]</em><span>Still nothing — adds LIMIT</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>EVALUATE</b><em>for x in qs / list(qs)</em><span>NOW the SQL runs</span></div>
+    </div>
+
+    <p>That laziness is why pagination is cheap: slicing a queryset becomes <code>LIMIT/OFFSET</code>
+    in SQL. Rows never enter Python.</p>
+
+<pre><code><span class="c"># chain freely — one query at the end, not four</span>
+items = (MenuItem.objects
+    .filter(is_available=<span class="k">True</span>)
+    .exclude(price__gt=500)
+    .select_related(<span class="k">'category'</span>)
+    .order_by(<span class="k">'name'</span>))</code></pre>
+
+    <h3>Field lookups — the <code>__</code> syntax</h3>
+    <div class="tw"><table>
+      <tr><th>Lookup</th><th>SQL</th></tr>
+      <tr><td><code>price__gt=100</code></td><td>price &gt; 100 &nbsp;(<code>gte lt lte</code> too)</td></tr>
+      <tr><td><code>name__icontains='dal'</code></td><td>ILIKE '%dal%'</td></tr>
+      <tr><td><code>category__name='Chinese'</code></td><td>JOIN, then filter — <code>__</code> walks the FK</td></tr>
+      <tr><td><code>id__in=[1,2,3]</code></td><td>IN (1,2,3)</td></tr>
+      <tr><td><code>description__isnull=True</code></td><td>IS NULL</td></tr>
+    </table></div>
+
+    <h3>Getting objects out</h3>
+    <div class="tw"><table>
+      <tr><th>Call</th><th>Returns</th><th>If missing</th></tr>
+      <tr><td><code>.all()</code> / <code>.filter()</code></td><td>QuerySet</td><td>empty queryset</td></tr>
+      <tr><td><code>.get(id=x)</code></td><td>one object</td><td><strong>raises</strong> DoesNotExist</td></tr>
+      <tr><td><code>.first()</code></td><td>one object</td><td><code>None</code></td></tr>
+      <tr><td><code>.count()</code></td><td>int</td><td>0</td></tr>
+      <tr><td><code>.exists()</code></td><td>bool</td><td>False</td></tr>
+    </table></div>
+
+    <p><code>.get()</code> raising is why <code>item_detail</code> in this repo wraps it in try/except.
+    <code>.filter(...).first()</code> returns <code>None</code> instead — that's what the new
+    <code>MenuItemDetailView.get_object()</code> uses, so no exception handling is needed.</p>
+
+    <div class="ex"><b>vs Mongoose</b>
+      <code>await Model.find()</code> executes immediately; Django's <code>.filter()</code> doesn't.
+      No <code>await</code> anywhere — Django is synchronous by default, and that's fine.
+      <code>select_related</code> is <code>.populate()</code>, but it does a real SQL JOIN.</div>
+
+    <div class="note"><b>N+1, the one that bites</b>
+      Serializing 10 items with <code>category_name</code> fires 1 query + 10 more for categories.
+      <code>.select_related('category')</code> collapses it to one JOIN. Use it for FK / OneToOne;
+      use <code>.prefetch_related()</code> for reverse FK and ManyToMany.</div>
+  </section>
+
+  <!-- ============ SERIALIZERS ============ -->
+  <section class="card" id="serializers" data-t="Serializers" data-k="serializer validation modelserializer fields json drf">
+    <h2>Serializers</h2>
+    <p class="sub">Two jobs in one class: shape the JSON, and validate what comes in.</p>
+
+    <div class="flow">
+      <div class="step"><b>READ</b><em>Serializer(obj)</em><span>model → .data dict</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>WRITE</b><em>Serializer(data=…)</em><span>dict → validated model</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>CHECK</b><em>.is_valid()</em><span>runs all validators</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>SAVE</b><em>.save()</em><span>create() or update()</span></div>
+    </div>
+
+<pre><code><span class="k">class</span> MenuItemSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source=<span class="k">'category.name'</span>, read_only=<span class="k">True</span>)
+
+    <span class="k">class</span> Meta:
+        model  = MenuItem
+        fields = (<span class="k">'id'</span>, <span class="k">'name'</span>, <span class="k">'price'</span>, <span class="k">'category'</span>, <span class="k">'category_name'</span>)
+        read_only_fields = (<span class="k">'id'</span>,)
+
+    <span class="k">def</span> validate_price(self, value):      <span class="c"># validate_&lt;field&gt; — auto-discovered</span>
+        <span class="k">if</span> value &lt;= 0:
+            <span class="k">raise</span> serializers.ValidationError(<span class="k">"Price must be greater than zero"</span>)
+        <span class="k">return</span> value</code></pre>
+
+    <div class="tw"><table>
+      <tr><th>Pattern</th><th>Does</th></tr>
+      <tr><td><code>Serializer(obj)</code></td><td>read one → <code>.data</code></td></tr>
+      <tr><td><code>Serializer(qs, many=True)</code></td><td>read a list</td></tr>
+      <tr><td><code>Serializer(data=request.data)</code></td><td>create</td></tr>
+      <tr><td><code>Serializer(obj, data=…)</code></td><td>full update (PUT)</td></tr>
+      <tr><td><code>Serializer(obj, data=…, partial=True)</code></td><td>partial update (PATCH)</td></tr>
+      <tr><td><code>.is_valid(raise_exception=True)</code></td><td>auto-400 with field errors</td></tr>
+    </table></div>
+
+    <p><code>validate_&lt;field&gt;</code> checks one field; a <code>validate(self, attrs)</code> method
+    checks the whole object when a rule spans two fields.</p>
+
+    <div class="ex"><b>vs Express</b>
+      Zod or Joi, but bidirectional — the same class that validates input also formats output,
+      and <code>ModelSerializer</code> infers the fields from the model instead of you redeclaring them.</div>
+  </section>
+
+  <!-- ============ PAGINATION ============ -->
+  <section class="card" id="pagination" data-t="Pagination" data-k="pagination paginate page size limit offset cursor pagenumber">
+    <h2>Pagination</h2>
+    <p class="sub">A config class the view hands the queryset to. Four attributes, read by name.</p>
+
+<pre><code><span class="k">class</span> MenuPagination(PageNumberPagination):
+    page_size = 10                   <span class="c"># default per page</span>
+    page_size_query_param = <span class="k">'size'</span>   <span class="c"># client override: ?size=50</span>
+    max_page_size = 100              <span class="c"># cap it</span></code></pre>
+
+    <h3>Two ways to use it</h3>
+<pre><code><span class="c"># generic view — set one attribute, the rest is inherited</span>
+<span class="k">class</span> MenuItemListView(generics.ListAPIView):
+    pagination_class = MenuPagination
+
+<span class="c"># APIView — the same work, done by hand (this repo does this)</span>
+paginator  = MenuPagination()
+page       = paginator.paginate_queryset(items, request, view=self)
+serializer = MenuItemSerializer(page, many=<span class="k">True</span>)
+<span class="k">return</span> paginator.get_paginated_response(serializer.data)</code></pre>
+
+    <p><code>paginate_queryset</code> reads <code>?page</code> and <code>?size</code>, clamps size
+    against <code>max_page_size</code>, then slices → <code>LIMIT 10 OFFSET 20</code>.
+    The response envelope is always:</p>
+
+<pre><code>{ <span class="k">"count"</span>: 137, <span class="k">"next"</span>: <span class="k">"…?page=3"</span>, <span class="k">"previous"</span>: <span class="k">"…?page=1"</span>, <span class="k">"results"</span>: [ … ] }</code></pre>
+
+    <div class="tw"><table>
+      <tr><th>Class</th><th>Query</th><th>Use when</th></tr>
+      <tr><td><code>PageNumberPagination</code></td><td><code>?page=2</code></td><td>numbered pages</td></tr>
+      <tr><td><code>LimitOffsetPagination</code></td><td><code>?limit=&amp;offset=</code></td><td>client controls the window</td></tr>
+      <tr><td><code>CursorPagination</code></td><td><code>?cursor=…</code></td><td>infinite scroll, huge tables</td></tr>
+    </table></div>
+
+    <div class="note"><b>Always order the queryset</b>
+      <code>LIMIT/OFFSET</code> without <code>ORDER BY</code> lets the database return rows in any
+      order, and it can differ between the page-1 and page-2 queries — items duplicate across pages
+      while others never appear. <code>MenuItem</code> has no <code>Meta.ordering</code> and a random
+      UUID primary key, so there's no accidental insertion-order to save you.</div>
+
+    <details><summary>Set a project-wide default</summary>
+<pre><code><span class="c"># settings.py</span>
+REST_FRAMEWORK = {
+    <span class="k">'DEFAULT_PAGINATION_CLASS'</span>: <span class="k">'rest_framework.pagination.PageNumberPagination'</span>,
+    <span class="k">'PAGE_SIZE'</span>: 20,
+}</code></pre>
+      <p>Setting <code>DEFAULT_PAGINATION_CLASS</code> without <code>PAGE_SIZE</code> silently
+      disables pagination. Not set in this repo yet — so <code>OrderViewSet</code> currently
+      returns every order in one response.</p>
+    </details>
+  </section>
+
+  <!-- ============ URLS ============ -->
+  <section class="card" id="urls" data-t="URLs &amp; routing" data-k="urls routing path as_view router converter include reverse">
+    <h2>URLs &amp; routing</h2>
+    <p class="sub">Three wiring styles. Using the wrong one is the most common early error.</p>
+
+<pre><code>urlpatterns = [
+    path(<span class="k">'list/'</span>, views.menu_list),                      <span class="c"># function → bare</span>
+    path(<span class="k">'api/items/'</span>, views.MenuItemListView.as_view()), <span class="c"># class → .as_view()</span>
+]
+
+router.register(<span class="k">''</span>, OrderViewSet, basename=<span class="k">'order'</span>)      <span class="c"># viewset → router</span></code></pre>
+
+    <div class="note"><b>Why <code>.as_view()</code></b>
+      Django's resolver can only call functions. <code>as_view()</code> converts the class into one.
+      A ViewSet has no <code>get()</code> at all — the router maps <code>list</code>→GET,
+      <code>create</code>→POST, etc. That's the entire reason routers exist.</div>
+
+    <h3>Path converters</h3>
+    <div class="tw"><table>
+      <tr><th>Converter</th><th>Matches</th><th>View receives</th></tr>
+      <tr><td><code>&lt;int:id&gt;</code></td><td>digits</td><td><code>int</code></td></tr>
+      <tr><td><code>&lt;str:slug&gt;</code></td><td>any text, no <code>/</code></td><td><code>str</code></td></tr>
+      <tr><td><code>&lt;uuid:item_id&gt;</code></td><td>valid UUID only</td><td><code>UUID</code></td></tr>
+    </table></div>
+
+    <p>The converter validates before your view runs — a malformed UUID gives a clean 404 at
+    routing time rather than a 500 inside the query.</p>
+
+    <div class="ex"><b>vs Express</b>
+      <code>path()</code> is <code>app.get()</code> minus the verb — Django matches URL first, then
+      the view decides the method. <code>include()</code> is <code>app.use('/prefix', router)</code>.
+      No <code>:param</code> — Django types the params for you.</div>
+  </section>
+
+  <!-- ============ TRANSLATION ============ -->
+  <section class="card" id="translate" data-t="Node → Django" data-k="node express translation comparison javascript mongoose npm">
+    <h2>Node → Django</h2>
+    <p class="sub">Direct lookups for when you know what you want but not what it's called.</p>
+
+    <div class="tw"><table>
+      <tr><th>Node / Express</th><th>Django</th></tr>
+      <tr><td><code>npm install</code></td><td><code>pip install -r requirements.txt</code></td></tr>
+      <tr><td><code>node index.js</code></td><td><code>python manage.py runserver</code></td></tr>
+      <tr><td><code>app.use('/menu', r)</code></td><td><code>path('menu/', include('menu.urls'))</code></td></tr>
+      <tr><td><code>req.query.size</code></td><td><code>request.query_params.get('size')</code></td></tr>
+      <tr><td><code>req.body</code></td><td><code>request.data</code> (DRF)</td></tr>
+      <tr><td><code>req.params.id</code></td><td>a named function argument</td></tr>
+      <tr><td><code>res.json(x)</code></td><td><code>Response(x)</code></td></tr>
+      <tr><td><code>res.status(201).json()</code></td><td><code>Response(x, status=201)</code></td></tr>
+      <tr><td>middleware</td><td><code>MIDDLEWARE</code> in settings.py, or decorators</td></tr>
+      <tr><td>Zod / Joi</td><td>serializers</td></tr>
+      <tr><td>Prisma migrate</td><td><code>makemigrations</code> + <code>migrate</code></td></tr>
+      <tr><td><code>.env</code> + dotenv</td><td><code>settings.py</code></td></tr>
+    </table></div>
+
+    <div class="note"><b>The habit to unlearn</b>
+      No <code>async/await</code>. Django is synchronous by default and blocking DB calls are
+      normal — the server runs multiple workers instead of one event loop.</div>
+  </section>
+
+  <!-- ============ MIGRATIONS ============ -->
+  <section class="card" id="migrations" data-t="Migrations" data-k="migrations migrate makemigrations runpython data migration unique schema showmigrations">
+    <h2>Migrations</h2>
+    <p class="sub">Version control for your schema. Written from models, applied to the database —
+       two separate steps, and they drift apart more often than you'd expect.</p>
+
+    <div class="flow">
+      <div class="step"><b>EDIT</b><em>models.py</em><span>Change a field</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>WRITE</b><em>makemigrations</em><span>Generates a numbered file</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>REVIEW</b><em>read the file</em><span>It's just Python — edit it</span></div>
+      <div class="arrow">→</div>
+      <div class="step"><b>APPLY</b><em>migrate</em><span>Runs SQL, records it</span></div>
+    </div>
+
+    <div class="tw"><table>
+      <tr><th>Command</th><th>Does</th></tr>
+      <tr><td><code>makemigrations</code></td><td>Diffs models vs. migrations → writes a new file. Touches no data.</td></tr>
+      <tr><td><code>migrate</code></td><td>Applies unapplied files to the database</td></tr>
+      <tr><td><code>showmigrations</code></td><td><code>[X]</code> applied, <code>[ ]</code> pending. First thing to check.</td></tr>
+      <tr><td><code>sqlmigrate app 0006</code></td><td>Prints the SQL without running it</td></tr>
+      <tr><td><code>migrate orders 0005</code></td><td>Roll <em>back</em> to that migration</td></tr>
+    </table></div>
+
+    <div class="note"><b>Written ≠ applied</b>
+      A migration file existing means nothing. This project sat with 8 written-but-unapplied
+      migrations, so <code>payments_payment</code> didn't exist as a table while the model looked
+      perfectly fine. When an error makes no sense, run <code>showmigrations</code> first.</div>
+
+    <h3>Adding a unique field to a table that already has rows</h3>
+    <p>The trap that broke <code>orders/0006</code>. <code>AddField</code> evaluates
+    <code>default=uuid.uuid4</code> <strong>once</strong> and writes that one value to every existing
+    row — so with 2+ rows, <code>unique=True</code> fails immediately:</p>
+<pre><code>sqlite3.IntegrityError: UNIQUE constraint failed: new__orders_order.public_id</code></pre>
+
+    <p>It isn't fixable by retrying, because "one default for every row" and "all values distinct"
+    can't both be true. Split it into three operations in the same file:</p>
+
+<pre><code><span class="k">def</span> backfill_public_ids(apps, schema_editor):
+    Order = apps.get_model(<span class="k">'orders'</span>, <span class="k">'Order'</span>)   <span class="c"># NOT a real import</span>
+    <span class="k">for</span> order <span class="k">in</span> Order.objects.all():
+        order.public_id = uuid.uuid4()
+        order.save(update_fields=[<span class="k">'public_id'</span>])
+
+operations = [
+    <span class="c"># 1. add it WITHOUT unique — duplicates allowed for now</span>
+    migrations.AddField(<span class="k">'order'</span>, <span class="k">'public_id'</span>,
+        models.UUIDField(default=uuid.uuid4, editable=<span class="k">False</span>)),
+
+    <span class="c"># 2. backfill one distinct value per row</span>
+    migrations.RunPython(backfill_public_ids, migrations.RunPython.noop),
+
+    <span class="c"># 3. NOW apply the constraint</span>
+    migrations.AlterField(<span class="k">'order'</span>, <span class="k">'public_id'</span>,
+        models.UUIDField(default=uuid.uuid4, unique=<span class="k">True</span>, db_index=<span class="k">True</span>, editable=<span class="k">False</span>)),
+]</code></pre>
+
+    <p>Same shape for any "backfill then constrain" change — adding <code>null=False</code> to a
+    populated column, splitting a name field, renaming a status value.</p>
+
+    <div class="note"><b>Always <code>apps.get_model()</code> in a data migration</b>
+      Never <code>from orders.models import Order</code>. A migration must see the model as it was
+      <em>at that point in history</em>. Import the live model and this file breaks retroactively
+      the day you delete a field — an old migration would suddenly reference a column that no
+      longer exists.</div>
+
+    <details><summary>When editing a migration by hand is safe</summary>
+      <p>Only while it's still <code>[ ]</code> unapplied — as it was here. Once a migration has run
+      anywhere it can't be edited, because Django records it as done by <em>name</em> and never
+      re-reads it. At that point you write a <em>new</em> corrective migration instead.</p>
+      <p>Rule of thumb: unapplied and local → edit freely. Applied or pushed → add, never edit.</p>
+    </details>
+
+    <div class="ex"><b>vs Prisma / Knex</b>
+      <code>makemigrations</code> is <code>prisma migrate dev</code> — diffed from your schema, not
+      hand-written. But Django migrations are plain Python you're expected to open and edit, and
+      <code>RunPython</code> gives you a data migration in the same file as the schema change.</div>
+  </section>
+
+  <!-- ============ ER DIAGRAM ============ -->
+  <section class="card" id="er" data-t="ER diagram" data-k="er database schema tables models relationships foreign key m2m inheritance proxy abstract cardinality">
+    <h2>ER diagram</h2>
+    <p class="sub">Every model in the project, as the tables they become. Dashed boxes create
+       <em>no table</em> — that's the whole trick of abstract and proxy models.</p>
+
+    <div class="er">
+      <div class="ent ghost">
+        <h4>TimestampedModel <span class="app core">core</span></h4>
+        <div class="fld"><span>created_at</span><i>DateTime</i></div>
+        <div class="fld"><span>updated_at</span><i>DateTime</i></div>
+        <p><strong>Abstract</strong> — no table. Its columns are copied into every child.</p>
+      </div>
+
+      <div class="ent">
+        <h4>Category <span class="app menu">menu</span></h4>
+        <div class="fld"><span>id</span><b>PK</b></div>
+        <div class="fld"><span>name</span><i>varchar(50)</i></div>
+        <div class="fld"><span>description</span><i>text</i></div>
+      </div>
+
+      <div class="ent">
+        <h4>MenuItem <span class="app menu">menu</span></h4>
+        <div class="fld"><span>id</span><b>PK · UUID</b></div>
+        <div class="fld"><span>category_id</span><b>FK</b></div>
+        <div class="fld"><span>name</span><i>varchar(100)</i></div>
+        <div class="fld"><span>price</span><i>decimal(6,2)</i></div>
+        <div class="fld"><span>is_available</span><i>bool</i></div>
+        <div class="fld"><span>created_at / updated_at</span><i>inherited</i></div>
+        <p>No <code>Meta.ordering</code> + random UUID PK → always <code>.order_by()</code> before paginating.</p>
+      </div>
+
+      <div class="ent">
+        <h4>Food <span class="app menu">menu</span></h4>
+        <div class="fld"><span>menuitem_ptr_id</span><b>PK · FK</b></div>
+        <div class="fld"><span>is_vegetarian</span><i>bool</i></div>
+        <div class="fld"><span>spice_level</span><i>int</i></div>
+        <p><strong>Multi-table</strong> — own table, silently 1–1 with MenuItem.</p>
+      </div>
+
+      <div class="ent">
+        <h4>Beverage <span class="app menu">menu</span></h4>
+        <div class="fld"><span>menuitem_ptr_id</span><b>PK · FK</b></div>
+        <div class="fld"><span>size_ml</span><i>int</i></div>
+        <div class="fld"><span>is_carbonated</span><i>bool</i></div>
+        <p><strong>Multi-table</strong> — reading one costs a JOIN.</p>
+      </div>
+
+      <div class="ent">
+        <h4>Order <span class="app ord">orders</span></h4>
+        <div class="fld"><span>id</span><b>PK · BigAuto</b></div>
+        <div class="fld"><span>public_id</span><b>UNIQUE · UUID</b></div>
+        <div class="fld"><span>customer_name / _phone / _email</span><i></i></div>
+        <div class="fld"><span>status</span><i>6 choices</i></div>
+        <div class="fld"><span>total_amount</span><i>decimal(10,2)</i></div>
+        <div class="fld"><span>created_at / updated_at</span><i>inherited</i></div>
+        <p><strong>Dual ID</strong> — int PK for fast JOINs, UUID for the API. Never leaks row counts.</p>
+      </div>
+
+      <div class="ent">
+        <h4>OrderItem <span class="app ord">orders</span></h4>
+        <div class="fld"><span>id</span><b>PK</b></div>
+        <div class="fld"><span>order_id</span><b>FK · CASCADE</b></div>
+        <div class="fld"><span>menu_item_id</span><b>FK · PROTECT</b></div>
+        <div class="fld"><span>quantity</span><i>int</i></div>
+        <div class="fld"><span>unit_price</span><i>decimal(6,2)</i></div>
+        <p>The <strong>through table</strong>. <code>unit_price</code> freezes the price at order time.</p>
+      </div>
+
+      <div class="ent">
+        <h4>OrderInvoice <span class="app ord">orders</span></h4>
+        <div class="fld"><span>id</span><b>PK</b></div>
+        <div class="fld"><span>order_id</span><b>FK · UNIQUE</b></div>
+        <p>OneToOne = FK plus a unique constraint. Reach it via <code>order.invoice</code>.</p>
+      </div>
+
+      <div class="ent ghost">
+        <h4>Recent / ArchivedOrder <span class="app ord">orders</span></h4>
+        <div class="fld"><span>— same columns as Order —</span><i></i></div>
+        <p><strong>Proxy</strong> — no table. Same rows, different default ordering and methods.</p>
+      </div>
+
+      <div class="ent">
+        <h4>Payment <span class="app pay">payments</span></h4>
+        <div class="fld"><span>payment_id</span><b>PK · UUID</b></div>
+        <div class="fld"><span>order_id</span><b>FK · CASCADE</b></div>
+        <div class="fld"><span>amount</span><i>int, paise</i></div>
+        <div class="fld"><span>status</span><i>TextChoices</i></div>
+        <div class="fld"><span>razorpay_payment_id</span><i>varchar(255)</i></div>
+        <div class="fld"><span>razorpay_payment_link_id</span><i>varchar(255)</i></div>
+        <p>Amount in <strong>paise as an integer</strong> — money in floats loses cents.</p>
+      </div>
+
+      <div class="ent">
+        <h4>WebhookEvent <span class="app pay">payments</span></h4>
+        <div class="fld"><span>event_id</span><b>PK · from Razorpay</b></div>
+        <div class="fld"><span>event_type</span><i>varchar(100)</i></div>
+        <div class="fld"><span>payload</span><i>JSON</i></div>
+        <div class="fld"><span>processed</span><i>bool</i></div>
+        <p>No FK by design. Razorpay's own id as PK is what makes retries <strong>idempotent</strong>.</p>
+      </div>
+    </div>
+
+    <h3>Relationships</h3>
+    <div class="rel"><span class="e">Category</span><span class="cd">1 ──&lt; N</span><span class="e">MenuItem</span><span class="via">FK category · CASCADE</span></div>
+    <div class="rel"><span class="e">MenuItem</span><span class="cd">1 ─── 1</span><span class="e">Food / Beverage</span><span class="via">multi-table inheritance</span></div>
+    <div class="rel"><span class="e">Order</span><span class="cd">N ─&gt;&lt;─ M</span><span class="e">MenuItem</span><span class="via">through OrderItem</span></div>
+    <div class="rel"><span class="e">Order</span><span class="cd">1 ──&lt; N</span><span class="e">OrderItem</span><span class="via">FK order · CASCADE</span></div>
+    <div class="rel"><span class="e">MenuItem</span><span class="cd">1 ──&lt; N</span><span class="e">OrderItem</span><span class="via">FK menu_item · PROTECT</span></div>
+    <div class="rel"><span class="e">Order</span><span class="cd">1 ─── 1</span><span class="e">OrderInvoice</span><span class="via">OneToOne · CASCADE</span></div>
+    <div class="rel"><span class="e">Order</span><span class="cd">1 ──&lt; N</span><span class="e">Payment</span><span class="via">FK order · CASCADE</span></div>
+    <div class="rel"><span class="e">WebhookEvent</span><span class="cd">— none —</span><span class="e">standalone</span><span class="via">audit log</span></div>
+
+    <div class="note"><b>One PROTECT among the CASCADEs</b>
+      Deleting a <code>Category</code> deletes its menu items. But deleting a <code>MenuItem</code>
+      that appears on any order <strong>raises</strong> <code>ProtectedError</code> — because
+      <code>OrderItem.menu_item</code> uses <code>PROTECT</code>. That's correct: it stops a menu
+      edit from silently rewriting order history.</div>
+
+    <h3>Three inheritance styles — you're using all of them</h3>
+    <div class="tw"><table>
+      <tr><th>Style</th><th>Declared by</th><th>Tables</th><th>Here</th></tr>
+      <tr><td>Abstract</td><td><code>abstract = True</code></td><td>none — columns copied into children</td><td><code>TimestampedModel</code></td></tr>
+      <tr><td>Multi-table</td><td>subclass a concrete model</td><td>own table + implicit 1–1</td><td><code>Food</code>, <code>Beverage</code></td></tr>
+      <tr><td>Proxy</td><td><code>proxy = True</code></td><td>none — reuses the parent's</td><td><code>RecentOrder</code>, <code>ArchivedOrder</code></td></tr>
+    </table></div>
+
+    <p>Rule of thumb: <strong>abstract</strong> for shared columns, <strong>proxy</strong> for shared
+    columns with different behaviour, <strong>multi-table</strong> when a subtype genuinely has extra
+    columns. Multi-table is the one to be careful with — every read is a JOIN.</p>
+
+    <div class="ex"><b>vs Mongoose</b>
+      No embedding here. Mongo would nest items inside the order document; a relational schema
+      makes <code>OrderItem</code> its own table so a menu item can be queried across all orders.
+      <code>related_name</code> is what <code>.populate()</code> gives you, but declared on the model.</div>
+
+    <details><summary>Reproduce this diagram from the models</summary>
+<pre><code><span class="c"># show the SQL a migration will run</span>
+python manage.py sqlmigrate menu 0001
+
+<span class="c"># dependency graph of every model (needs: pip install pydotplus)</span>
+python manage.py graph_models -a -o er.png</code></pre>
+      <p>Neither is needed to read this page — but <code>sqlmigrate</code> is the fastest way to
+      see exactly which columns and constraints a model produces.</p>
+    </details>
+  </section>
+
+  <!-- ============ GOTCHAS ============ -->
+  <section class="card" id="gotchas" data-t="Gotchas hit" data-k="gotchas bugs mistakes errors n+1 ordering allowed_hosts">
+    <h2>Gotchas hit so far</h2>
+    <p class="sub">Real ones from this repo. Add to this list as you break things.</p>
+
+    <div class="tw"><table>
+      <tr><th>Symptom</th><th>Cause / fix</th></tr>
+      <tr><td>Items repeat across pages</td><td>No <code>ORDER BY</code>. Add <code>.order_by()</code> or <code>Meta.ordering</code></td></tr>
+      <tr><td>One list = dozens of queries</td><td>N+1. Add <code>.select_related()</code></td></tr>
+      <tr><td><code>pagination_class</code> ignored</td><td>Plain function view — DRF features need <code>APIView</code> or lower</td></tr>
+      <tr><td><code>TypeError</code> on a CBV route</td><td>Forgot <code>.as_view()</code></td></tr>
+      <tr><td>Nothing is paginated</td><td><code>DEFAULT_PAGINATION_CLASS</code> set without <code>PAGE_SIZE</code></td></tr>
+      <tr><td><code>DisallowedHost: testserver</code></td><td>Test client outside the test runner — add to <code>ALLOWED_HOSTS</code></td></tr>
+      <tr><td>Model change had no effect</td><td>Forgot <code>makemigrations</code> + <code>migrate</code></td></tr>
+      <tr><td><code>no such table: payments_payment</code></td><td>Migration <em>written</em> but not applied. <code>showmigrations</code> shows <code>[ ]</code> vs <code>[X]</code></td></tr>
+      <tr><td><code>AttributeError</code> on a model field</td><td>Field renamed in models but the old name still used in a view</td></tr>
+      <tr><td><code>UNIQUE constraint failed</code> on migrate</td><td>Added a unique field to populated rows — split into add → backfill → constrain</td></tr>
+    </table></div>
+
+    <div class="note"><b>Check this first when something is "impossible"</b>
+      <code>python manage.py showmigrations</code>. A model can be perfectly correct while the
+      database is several migrations behind it — the code and the schema disagree, and the error
+      message describes the schema.</div>
+  </section>
+
+  <!-- ============ NEXT ============ -->
+  <section class="card" id="next" data-t="Not learned yet" data-k="next todo roadmap auth permissions tests filters">
+    <h2>Not learned yet</h2>
+    <p class="sub">The map's edges — roughly in the order worth tackling.</p>
+
+    <div class="files">
+      <div class="file"><b>permissions</b><span>Auth on endpoints. The menu API is fully open right now.</span><i>permission_classes</i></div>
+      <div class="file"><b>django-filter</b><span>Query-param filtering without hand-writing it in get().</span><i>filterset_fields</i></div>
+      <div class="file"><b>tests</b><span>Every app has an empty tests.py. APITestCase is the DRF one.</span><i>manage.py test</i></div>
+      <div class="file"><b>signals</b><span>Run code on save/delete. Powerful, easy to overuse.</span><i>post_save</i></div>
+      <div class="file"><b>transactions</b><span>Used in the webhook already — worth learning properly.</span><i>transaction.atomic</i></div>
+      <div class="file"><b>aggregation</b><span>SUM/COUNT/AVG in the DB instead of Python loops.</span><i>annotate, aggregate</i></div>
+    </div>
+  </section>
+
+  <p class="empty" id="empty">No section matches that filter.</p>
+</main>
+</div>
+
+<script>
+(function(){
+  var cards = Array.prototype.slice.call(document.querySelectorAll('.card'));
+  var nav = document.getElementById('nav');
+  var empty = document.getElementById('empty');
+
+  // build nav from the cards themselves
+  cards.forEach(function(c){
+    var a = document.createElement('a');
+    a.href = '#' + c.id;
+    a.textContent = c.dataset.t;
+    a.dataset.for = c.id;
+    nav.appendChild(a);
+  });
+
+  // filter
+  document.getElementById('q').addEventListener('input', function(e){
+    var q = e.target.value.trim().toLowerCase(), shown = 0;
+    cards.forEach(function(c){
+      var hit = !q || (c.dataset.k + ' ' + c.dataset.t).toLowerCase().indexOf(q) > -1;
+      c.classList.toggle('hide', !hit);
+      var link = nav.querySelector('[data-for="' + c.id + '"]');
+      if (link) link.style.display = hit ? '' : 'none';
+      if (hit) shown++;
+    });
+    empty.classList.toggle('on', shown === 0);
+  });
+
+  // toggles, persisted
+  function wire(id, apply){
+    var el = document.getElementById(id);
+    var saved = null;
+    try { saved = localStorage.getItem('dfg-' + id); } catch(_){}
+    el.checked = saved === '1';
+    apply(el.checked);
+    el.addEventListener('change', function(){
+      apply(el.checked);
+      try { localStorage.setItem('dfg-' + id, el.checked ? '1' : '0'); } catch(_){}
+    });
+  }
+  wire('ex', function(on){ document.body.classList.toggle('show-ex', on); });
+  wire('dk', function(on){ document.documentElement.dataset.theme = on ? 'dark' : 'light'; });
+
+  // scrollspy
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if (!en.isIntersecting) return;
+        nav.querySelectorAll('a').forEach(function(a){
+          a.classList.toggle('on', a.dataset.for === en.target.id);
+        });
+      });
+    }, { rootMargin: '-10% 0px -70% 0px' });
+    cards.forEach(function(c){ io.observe(c); });
+  }
+})();
+</script>
+</body>
+</html>
