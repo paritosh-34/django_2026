@@ -543,6 +543,65 @@ REST_FRAMEWORK = {
       <code>get()</code> keeps all four filters in one place, no extra dependency.</div>
   </section>
 
+  <!-- ============ CACHING ============ -->
+  <section class="card" id="caching" data-t="Caching" data-k="cache cache_page method_decorator caches redis locmem ttl invalidation stale vary">
+    <h2>Caching</h2>
+    <p class="sub">Store a response and re-serve it without touching the DB. <code>cache_page</code>
+       is a <em>Django</em> tool (not DRF), written for function views.</p>
+
+    <h3>Decorate the handler your base class actually calls</h3>
+    <div class="tw"><table>
+      <tr><th>Base class</th><th>List handler</th><th>Decorate</th></tr>
+      <tr><td><code>APIView</code> (this repo)</td><td><code>get()</code></td><td><code>get</code></td></tr>
+      <tr><td><code>ListAPIView</code> / <code>ModelViewSet</code></td><td><code>list()</code></td><td><code>list</code></td></tr>
+    </table></div>
+
+<pre><code><span class="k">from</span> django.utils.decorators <span class="k">import</span> method_decorator
+<span class="k">from</span> django.views.decorators.cache <span class="k">import</span> cache_page
+
+<span class="k">class</span> MenuItemListView(APIView):
+    @method_decorator(cache_page(60 * 5))   <span class="c"># 5 min TTL</span>
+    <span class="k">def</span> get(self, request):                <span class="c"># NOT list() — this is an APIView</span>
+        …</code></pre>
+
+    <p><code>cache_page</code> takes <code>(request)</code>; a method gets <code>(self, request)</code>.
+    <code>method_decorator</code> bridges that gap — like wrapping Express middleware to sit on a
+    class method. It keys on the <b>full URL incl. query string</b>, so every filter combo caches
+    on its own:</p>
+
+<pre><code>/menu/items/?search=iphone&amp;ordering=-price  <span class="c"># entry A</span>
+/menu/items/?category=Breads                 <span class="c"># entry B (independent)</span>
+/menu/items/?search=iphone&amp;ordering=-price  <span class="c"># HIT — no DB, no query</span></code></pre>
+
+    <div class="note"><b>No auto-invalidation</b>
+      <code>cache_page</code> never clears itself. POST a new item and the cached list keeps
+      serving the <em>old</em> set until the TTL expires. Fine for a slow-changing public menu;
+      a bug for fast-moving data. Only GET/HEAD are cached — <code>post()</code> is untouched.</div>
+
+    <div class="note"><b>It caches globally — no concept of "user"</b>
+      One response is stored for everyone. Perfect for a public menu; on a per-user endpoint it
+      <em>leaks</em> — user A gets user B's cached data. Per-user caching needs a manual key or
+      <code>vary_on_headers</code>.</div>
+
+    <details><summary>Where the cache actually lives — <code>CACHES</code></summary>
+<pre><code><span class="c"># settings.py — default if you set nothing:</span>
+CACHES = {<span class="k">'default'</span>: {<span class="k">'BACKEND'</span>:
+    <span class="k">'django.core.cache.backends.locmem.LocMemCache'</span>}}  <span class="c"># in-process, wiped on restart</span>
+
+<span class="c"># real deployments point it at a shared store:</span>
+CACHES = {<span class="k">'default'</span>: {
+    <span class="k">'BACKEND'</span>: <span class="k">'django.core.cache.backends.redis.RedisCache'</span>,
+    <span class="k">'LOCATION'</span>: <span class="k">'redis://127.0.0.1:6379'</span>}}</code></pre>
+      <p><code>LocMemCache</code> is per-process — with multiple workers each has its own copy, so a
+      hit rate looks random. Redis/Memcached give one shared cache across workers.</p>
+    </details>
+
+    <div class="ex"><b>vs Express</b>
+      <code>cache_page</code> ≈ <code>apcache</code>/<code>res.set('Cache-Control')</code> plus a
+      server-side store — but Django keeps the rendered response, so a hit skips your view entirely,
+      the way a reverse proxy would.</div>
+  </section>
+
   <!-- ============ URLS ============ -->
   <section class="card" id="urls" data-t="URLs &amp; routing" data-k="urls routing path as_view router converter include reverse">
     <h2>URLs &amp; routing</h2>
@@ -849,6 +908,8 @@ python manage.py graph_models -a -o er.png</code></pre>
       <tr><td><code>UNIQUE constraint failed</code> on migrate</td><td>Added a unique field to populated rows — split into add → backfill → constrain</td></tr>
       <tr><td><code>search_fields</code> / <code>filter_backends</code> do nothing</td><td>Only <code>GenericAPIView</code> reads them — on plain <code>APIView</code> they're silently ignored</td></tr>
       <tr><td>Client sorts by a field you never exposed</td><td>Raw <code>?ordering=</code> passed to <code>order_by()</code>. Whitelist the allowed fields</td></tr>
+      <tr><td><code>cache_page</code> decorator does nothing</td><td>Decorated <code>list()</code> on an <code>APIView</code> — its handler is <code>get()</code>. Match the base class's method name</td></tr>
+      <tr><td>New item won't show in a list</td><td>Stale <code>cache_page</code> — no auto-invalidation until the TTL expires</td></tr>
     </table></div>
 
     <div class="note"><b>Check this first when something is "impossible"</b>

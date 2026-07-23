@@ -1,6 +1,8 @@
 from django.db.models import Q
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 
 from rest_framework import status
 from rest_framework.pagination import PageNumberPagination
@@ -126,6 +128,13 @@ class MenuItemListView(APIView):
     ORDERING_FIELDS = {'name', 'price', 'created_at'}
     DEFAULT_ORDERING = 'name'
 
+    # cache_page is a function-view decorator; method_decorator adapts it to a
+    # class method. Keys on the FULL URL (incl. ?search / ?ordering / ?page), so
+    # each filter combo caches separately. APIView's list handler is get() — a
+    # ViewSet would decorate list() instead. Only GET/HEAD are cached; post()
+    # is untouched. Trap: no auto-invalidation — a new item won't appear here
+    # until the 5-min TTL expires. Fine for a public menu; wrong for per-user data.
+    @method_decorator(cache_page(60 * 5))  # 5 minutes
     def get(self, request):
         items = MenuItem.objects.select_related('category')
 
